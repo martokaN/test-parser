@@ -1,0 +1,226 @@
+---
+let parsedQuestions = [];
+---
+
+<div>
+  <button id="paste-btn">Paste</button>
+  <button id="make-test-btn">Make Test</button>
+  <button id="reset-btn">Reset</button>
+  <p id="check-msg" style="margin-top: 0.5rem;"></p>
+  <div id="quiz-container"></div>
+</div>
+
+<script>
+  let markdown = '';
+  let parsedQuestions = [];
+
+  function isMarkdown(text) {
+    return /(### )/.test(text);
+  }
+
+  function parseMarkdown(text) {
+    const lines = text.split('\n');
+    const questions = [];
+    let currentQuestion = null;
+
+    for (let line of lines) {
+      line = line.trim();
+
+      const isWordQuestion = line.startsWith('### [word]');
+      const isRegularQuestion = line.startsWith('### ') && !isWordQuestion;
+
+      if (isWordQuestion) {
+        if (currentQuestion) questions.push(currentQuestion);
+        currentQuestion = {
+          type: 'word',
+          question: line.replace('### [word]', '').trim(),
+          answer: '',
+        };
+      } else if (isRegularQuestion) {
+        if (currentQuestion) questions.push(currentQuestion);
+        currentQuestion = {
+          type: 'choice',
+          question: line.slice(4).trim(),
+          options: [],
+        };
+      } else if (/^- \[[ xX]\]/.test(line)) {
+        const isCorrect = line[3].toLowerCase() === 'x';
+        const text = line.slice(6).trim();
+        if (currentQuestion && currentQuestion.options) {
+          currentQuestion.options.push({ text, isCorrect });
+        }
+      } else if (currentQuestion?.type === 'word' && currentQuestion.answer === '') {
+        currentQuestion.answer = line;
+      }
+    }
+
+    if (currentQuestion) questions.push(currentQuestion);
+
+    for (let q of questions) {
+      if (q.type === 'choice') {
+        const correctCount = q.options.filter(o => o.isCorrect).length;
+        q.choiceType = correctCount > 1 ? 'multiple' : 'single';
+      }
+    }
+
+    return questions;
+  }
+
+  async function handlePaste() {
+    try {
+      const text = await navigator.clipboard.readText();
+      const checkMsg = document.getElementById('check-msg');
+      if (isMarkdown(text)) {
+        markdown = text;
+        parsedQuestions = parseMarkdown(markdown);
+        checkMsg.textContent = '✅ Correct format';
+        checkMsg.style.color = 'green';
+      } else {
+        markdown = '';
+        parsedQuestions = [];
+        checkMsg.textContent = '❌ Bad format';
+        checkMsg.style.color = 'red';
+      }
+    } catch (err) {
+      const checkMsg = document.getElementById('check-msg');
+      checkMsg.textContent = '❌ Clipboard read failed';
+      checkMsg.style.color = 'red';
+    }
+  }
+
+  function resetQuiz() {
+    parsedQuestions = [];
+    markdown = '';
+    document.getElementById('check-msg').textContent = '';
+    document.getElementById('quiz-container').innerHTML = '';
+  }
+
+  function makeTest() {
+    const container = document.getElementById('quiz-container');
+    container.innerHTML = '';
+
+    if (parsedQuestions.length === 0) return;
+
+    const form = document.createElement('form');
+    form.id = 'quiz-form';
+
+    parsedQuestions.forEach((q, qIndex) => {
+      const wrapper = document.createElement('div');
+      wrapper.style.marginBottom = '1.5rem';
+
+      const questionEl = document.createElement('p');
+      questionEl.textContent = `${qIndex + 1}. ${q.question}`;
+      wrapper.appendChild(questionEl);
+
+      if (q.type === 'choice') {
+        q.options.forEach((option, oIndex) => {
+          const label = document.createElement('label');
+          label.style.display = 'block';
+
+          const input = document.createElement('input');
+          input.type = q.choiceType === 'single' ? 'radio' : 'checkbox';
+          input.name = `q${qIndex}`;
+          input.value = oIndex;
+          label.appendChild(input);
+          label.append(` ${option.text}`);
+          label.dataset.index = oIndex;
+          wrapper.appendChild(label);
+        });
+      } else if (q.type === 'word') {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.name = `q${qIndex}`;
+        input.style.display = 'block';
+        input.style.marginTop = '0.5rem';
+        wrapper.appendChild(input);
+
+        const feedback = document.createElement('div');
+        feedback.className = 'word-feedback';
+        wrapper.appendChild(feedback);
+      }
+
+      form.appendChild(wrapper);
+    });
+
+    const submit = document.createElement('button');
+    submit.textContent = 'Submit';
+    submit.type = 'submit';
+    form.appendChild(submit);
+
+    const result = document.createElement('p');
+    result.id = 'score';
+    result.style.marginTop = '1rem';
+    result.style.fontWeight = 'bold';
+    form.appendChild(result);
+
+    form.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    let score = 0;
+    parsedQuestions.forEach((q, qIndex) => {
+        const questionEl = form.querySelectorAll('div')[qIndex];
+
+        if (q.type === 'choice') {
+        const inputs = questionEl.querySelectorAll('input');
+        const selectedIndexes = Array.from(inputs)
+            .filter(i => i.checked)
+            .map(i => parseInt(i.value, 10));
+
+        // Color all labels accordingly
+        inputs.forEach((input) => {
+            const label = input.closest('label');
+            const index = parseInt(input.value, 10);
+            const option = q.options[index];
+
+            if (option.isCorrect && input.checked) {
+            label.style.color = 'green';
+            } else if (!option.isCorrect && input.checked) {
+            label.style.color = 'red';
+            } else if (option.isCorrect && !input.checked && q.choiceType === 'multiple') {
+            label.style.color = 'green';
+            }
+        });
+
+        const allCorrect = q.options.every((opt, i) =>
+            (opt.isCorrect && selectedIndexes.includes(i)) ||
+            (!opt.isCorrect && !selectedIndexes.includes(i))
+        );
+
+        if (allCorrect) score++;
+        }
+
+        if (q.type === 'word') {
+        const input = questionEl.querySelector('input');
+        const feedback = questionEl.querySelector('.word-feedback');
+        const submitted = input.value.trim().toLowerCase();
+        const correct = q.answer.replace(/^- /, '').trim().toLowerCase();
+
+        if (submitted === correct) {
+            input.style.border = '2px solid green';
+            feedback.textContent = 'Correct!';
+            feedback.style.color = 'green';
+            score++;
+        } else {
+            input.style.border = '2px solid red';
+            feedback.textContent = `Wrong. Correct answer: "${q.answer}"`;
+            feedback.style.color = 'red';
+        }
+        }
+    });
+
+    const percentage = ((score / parsedQuestions.length) * 100).toFixed(1);
+    document.getElementById('score').textContent = `Score: ${score} out of ${parsedQuestions.length} (${percentage}%)`;
+
+    form.querySelector('button[type="submit"]').disabled = true;
+    });
+
+
+    container.appendChild(form);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('paste-btn').addEventListener('click', handlePaste);
+    document.getElementById('make-test-btn').addEventListener('click', makeTest);
+    document.getElementById('reset-btn').addEventListener('click', resetQuiz);
+  });
+</script>
