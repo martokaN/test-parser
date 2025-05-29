@@ -1,5 +1,6 @@
 ---
 import Hero from "../components/Hero.astro";
+import Layout from "../layouts/Layout.astro";
 ---
 
 <html lang="en">
@@ -11,6 +12,8 @@ import Hero from "../components/Hero.astro";
 		<title>Astro</title>
 	</head>
 	<body>
-		<Hero />
+		<Layout>
+			<Hero />
+		</Layout>
 	</body>
 </html>

@@ -1,55 +1,80 @@
 ---
-let parsedQuestions = [];
+
 ---
 
-<div>
-  <button id="paste-btn">Paste</button>
-  <button id="make-test-btn">Make Test</button>
-  <button id="reset-btn">Reset</button>
-  <p id="check-msg" style="margin-top: 0.5rem;"></p>
-  <div id="quiz-container"></div>
+<div class="bg-gray-900 rounded-xl p-2">
+  <div class="flex justify-between gap-4">
+    <div class="space-x-2 flex">
+      <button id="paste-btn" class="btn">Vložit</button>
+      <button id="make-test-btn" class="btn">Vytvoř Test</button>
+      <button id="reset-btn" class="btn">Restart</button>
+    </div>
+    <button id="copy-sample" class="btn">Zkopírovat Příklad Testu</button>
+  </div>
+  <p id="check-msg" class="mt-1"></p>
+   <div id="quiz-container" class="text-white w-full"></div>
 </div>
 
 <script>
-  let markdown = '';
+  let markdown = "";
   let parsedQuestions = [];
+  const sampleTest = `
+      ### Jaké je hlavní město Itálie?
+      - [ ] Madrid
+      - [x] Řím
+      - [ ] Paříž
+      - [ ] Athény
+
+      ### Vyberte plody, které jsou ovoce.
+      - [x] Jablko
+      - [x] Banán
+      - [ ] Mrkev
+      - [ ] Salát
+
+      ### [word] Co pije kráva?
+      - Mléko
+      `.trim();
+
+  function copySample() {
+    navigator.clipboard.writeText(sampleTest);
+  }
 
   function isMarkdown(text) {
     return /(### )/.test(text);
   }
 
   function parseMarkdown(text) {
-    const lines = text.split('\n');
+    const lines = text.split("\n");
     const questions = [];
     let currentQuestion = null;
 
     for (let line of lines) {
       line = line.trim();
 
-      const isWordQuestion = line.startsWith('### [word]');
-      const isRegularQuestion = line.startsWith('### ') && !isWordQuestion;
+      const isWordQuestion = line.startsWith("### [word]");
+      const isRegularQuestion = line.startsWith("### ") && !isWordQuestion;
 
       if (isWordQuestion) {
         if (currentQuestion) questions.push(currentQuestion);
         currentQuestion = {
-          type: 'word',
-          question: line.replace('### [word]', '').trim(),
-          answer: '',
+          type: "word",
+          question: line.replace("### [word]", "").trim(),
+          answer: "",
         };
       } else if (isRegularQuestion) {
         if (currentQuestion) questions.push(currentQuestion);
         currentQuestion = {
-          type: 'choice',
+          type: "choice",
           question: line.slice(4).trim(),
           options: [],
         };
       } else if (/^- \[[ xX]\]/.test(line)) {
-        const isCorrect = line[3].toLowerCase() === 'x';
+        const isCorrect = line[3].toLowerCase() === "x";
         const text = line.slice(6).trim();
         if (currentQuestion && currentQuestion.options) {
           currentQuestion.options.push({ text, isCorrect });
         }
-      } else if (currentQuestion?.type === 'word' && currentQuestion.answer === '') {
+      } else if (currentQuestion?.type === "word" && currentQuestion.answer === "") {
         currentQuestion.answer = line;
       }
     }
@@ -57,9 +82,9 @@ let parsedQuestions = [];
     if (currentQuestion) questions.push(currentQuestion);
 
     for (let q of questions) {
-      if (q.type === 'choice') {
+      if (q.type === "choice") {
         const correctCount = q.options.filter(o => o.isCorrect).length;
-        q.choiceType = correctCount > 1 ? 'multiple' : 'single';
+        q.choiceType = correctCount > 1 ? "multiple" : "single";
       }
     }
 
@@ -69,158 +94,197 @@ let parsedQuestions = [];
   async function handlePaste() {
     try {
       const text = await navigator.clipboard.readText();
-      const checkMsg = document.getElementById('check-msg');
+      const checkMsg = document.getElementById("check-msg");
       if (isMarkdown(text)) {
         markdown = text;
         parsedQuestions = parseMarkdown(markdown);
-        checkMsg.textContent = '✅ Correct format';
-        checkMsg.style.color = 'green';
+        checkMsg.textContent = "✅ Správný formát";
+        checkMsg.style.color = "green";
       } else {
-        markdown = '';
+        markdown = "";
         parsedQuestions = [];
-        checkMsg.textContent = '❌ Bad format';
-        checkMsg.style.color = 'red';
+        checkMsg.textContent = "❌ Špatný formát";
+        checkMsg.style.color = "red";
       }
     } catch (err) {
-      const checkMsg = document.getElementById('check-msg');
-      checkMsg.textContent = '❌ Clipboard read failed';
-      checkMsg.style.color = 'red';
+      const checkMsg = document.getElementById("check-msg");
+      checkMsg.textContent = "❌ Vložení textu selhalo";
+      checkMsg.style.color = "red";
     }
   }
 
   function resetQuiz() {
     parsedQuestions = [];
-    markdown = '';
-    document.getElementById('check-msg').textContent = '';
-    document.getElementById('quiz-container').innerHTML = '';
+    markdown = "";
+    document.getElementById("check-msg").textContent = "";
+    document.getElementById("quiz-container").innerHTML = "";
   }
 
   function makeTest() {
-    const container = document.getElementById('quiz-container');
-    container.innerHTML = '';
+    document.getElementById("check-msg").textContent = "";
+
+    const container = document.getElementById("quiz-container");
+    container.innerHTML = "";
 
     if (parsedQuestions.length === 0) return;
 
-    const form = document.createElement('form');
-    form.id = 'quiz-form';
+    const form = document.createElement("form");
+    form.id = "quiz-form";
+    form.classList.add("flex", "flex-col", "items-center", "w-full", "mx-auto");
+
+    const wrappers = [];
 
     parsedQuestions.forEach((q, qIndex) => {
-      const wrapper = document.createElement('div');
-      wrapper.style.marginBottom = '1.5rem';
+      const wrapper = document.createElement("div");
+      wrapper.classList.add("mb-8", "w-full", "max-w-md");
 
-      const questionEl = document.createElement('p');
+      const questionEl = document.createElement("p");
       questionEl.textContent = `${qIndex + 1}. ${q.question}`;
+      questionEl.classList.add("text-left", "text-xl", "text-purple-300", "mb-2");
       wrapper.appendChild(questionEl);
 
-      if (q.type === 'choice') {
+      if (q.type === "choice") {
+        const optionsContainer = document.createElement("div");
+        optionsContainer.classList.add("text-left", "mt-2");
+        
         q.options.forEach((option, oIndex) => {
-          const label = document.createElement('label');
-          label.style.display = 'block';
+          const label = document.createElement("label");
+          label.style.display = "block";
+          label.classList.add("ml-2", "cursor-pointer");
 
-          const input = document.createElement('input');
-          input.type = q.choiceType === 'single' ? 'radio' : 'checkbox';
+          const input = document.createElement("input");
+          input.classList.add("appearance-none", "p-2", "bg-gray-600", "hover:bg-gray-500", "checked:hover:bg-purple-400", "checked:bg-purple-400");
+          input.classList.add(q.choiceType === "single" ? "rounded-full" : "rounded-sm");
+          input.type = q.choiceType === "single" ? "radio" : "checkbox";
           input.name = `q${qIndex}`;
           input.value = oIndex;
           label.appendChild(input);
           label.append(` ${option.text}`);
           label.dataset.index = oIndex;
-          wrapper.appendChild(label);
+          
+          optionsContainer.appendChild(label);
         });
-      } else if (q.type === 'word') {
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.name = `q${qIndex}`;
-        input.style.display = 'block';
-        input.style.marginTop = '0.5rem';
-        wrapper.appendChild(input);
-
-        const feedback = document.createElement('div');
-        feedback.className = 'word-feedback';
+        
+        const feedback = document.createElement("div");
+        feedback.className = "choice-feedback mt-1";
+        feedback.style.display = "none";
+        
+        wrapper.appendChild(optionsContainer);
         wrapper.appendChild(feedback);
+      } else if (q.type === "word") {
+        const inputContainer = document.createElement("div");
+        inputContainer.classList.add("text-left", "mt-2");
+        
+        const input = document.createElement("input");
+        input.type = "text";
+        input.name = `q${qIndex}`;
+        input.classList.add("rounded-full", "bg-gray-600", "pl-4");
+        input.classList.add("w-full", "p-1", "rounded");
+        inputContainer.appendChild(input);
+
+        const feedback = document.createElement("div");
+        feedback.className = "word-feedback mt-1";
+        inputContainer.appendChild(feedback);
+        
+        wrapper.appendChild(inputContainer);
       }
 
+      wrappers.push(wrapper);
       form.appendChild(wrapper);
     });
 
-    const submit = document.createElement('button');
-    submit.textContent = 'Submit';
-    submit.type = 'submit';
+    const submit = document.createElement("button");
+    submit.textContent = "Vyhodnotit";
+    submit.type = "submit";
+    submit.classList.add("btn");
     form.appendChild(submit);
 
-    const result = document.createElement('p');
-    result.id = 'score';
-    result.style.marginTop = '1rem';
-    result.style.fontWeight = 'bold';
+    const result = document.createElement("p");
+    result.id = "score";
+    result.style.marginTop = "1rem";
+    result.style.fontWeight = "bold";
     form.appendChild(result);
 
-    form.addEventListener('submit', (e) => {
-    e.preventDefault();
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
 
-    let score = 0;
-    parsedQuestions.forEach((q, qIndex) => {
-        const questionEl = form.querySelectorAll('div')[qIndex];
+      const allInputs = form.querySelectorAll("input");
+      allInputs.forEach(input => {
+        input.disabled = true;
+        input.classList.remove("hover:bg-gray-500");
+      });
 
-        if (q.type === 'choice') {
-        const inputs = questionEl.querySelectorAll('input');
-        const selectedIndexes = Array.from(inputs)
+      let score = 0;
+      parsedQuestions.forEach((q, qIndex) => {
+        const questionEl = wrappers[qIndex];
+
+        if (q.type === "choice") {
+          const inputs = questionEl.querySelectorAll("input");
+          const feedbackEl = questionEl.querySelector(".choice-feedback");
+          const selectedIndexes = Array.from(inputs)
             .filter(i => i.checked)
             .map(i => parseInt(i.value, 10));
 
-        // Color all labels accordingly
-        inputs.forEach((input) => {
-            const label = input.closest('label');
+          inputs.forEach((input) => {
+            const label = input.closest("label");
             const index = parseInt(input.value, 10);
             const option = q.options[index];
 
-            if (option.isCorrect && input.checked) {
-            label.style.color = 'green';
+            if (option.isCorrect) {
+              label.style.color = "green";
             } else if (!option.isCorrect && input.checked) {
-            label.style.color = 'red';
-            } else if (option.isCorrect && !input.checked && q.choiceType === 'multiple') {
-            label.style.color = 'green';
+              label.style.color = "red";
             }
-        });
+          });
 
-        const allCorrect = q.options.every((opt, i) =>
+          const allCorrect = q.options.every((opt, i) =>
             (opt.isCorrect && selectedIndexes.includes(i)) ||
             (!opt.isCorrect && !selectedIndexes.includes(i))
-        );
+          );
 
-        if (allCorrect) score++;
-        }
-
-        if (q.type === 'word') {
-        const input = questionEl.querySelector('input');
-        const feedback = questionEl.querySelector('.word-feedback');
-        const submitted = input.value.trim().toLowerCase();
-        const correct = q.answer.replace(/^- /, '').trim().toLowerCase();
-
-        if (submitted === correct) {
-            input.style.border = '2px solid green';
-            feedback.textContent = 'Correct!';
-            feedback.style.color = 'green';
+          feedbackEl.style.display = "block";
+          if (allCorrect) {
+            feedbackEl.textContent = "✅ Správně";
+            feedbackEl.style.color = "green";
             score++;
-        } else {
-            input.style.border = '2px solid red';
-            feedback.textContent = `Wrong. Correct answer: "${q.answer}"`;
-            feedback.style.color = 'red';
+          } else {
+            feedbackEl.textContent = "❌ Špatně";
+            feedbackEl.style.color = "red";
+          }
         }
+
+        if (q.type === "word") {
+          const input = questionEl.querySelector("input");
+          const feedback = questionEl.querySelector(".word-feedback");
+          const submitted = input.value.trim().toLowerCase();
+          const correct = q.answer.replace(/^- /, "").trim().toLowerCase();
+
+          if (submitted === correct) {
+            input.style.border = "2px solid green";
+            feedback.textContent = "✅ Správně!";
+            feedback.style.color = "green";
+            score++;
+          } else {
+            input.style.border = "2px solid red";
+            feedback.textContent = `❌ Špatně, správná odpověď je: "${q.answer}"`;
+            feedback.style.color = "red";
+          }
         }
+      });
+
+      const percentage = ((score / parsedQuestions.length) * 100).toFixed(1);
+      document.getElementById("score").textContent = `Správně bylo ${score} z ${parsedQuestions.length} otázek. (${percentage}%)`;
+
+      submit.remove();
     });
-
-    const percentage = ((score / parsedQuestions.length) * 100).toFixed(1);
-    document.getElementById('score').textContent = `Score: ${score} out of ${parsedQuestions.length} (${percentage}%)`;
-
-    form.querySelector('button[type="submit"]').disabled = true;
-    });
-
 
     container.appendChild(form);
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('paste-btn').addEventListener('click', handlePaste);
-    document.getElementById('make-test-btn').addEventListener('click', makeTest);
-    document.getElementById('reset-btn').addEventListener('click', resetQuiz);
+  document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("paste-btn").addEventListener("click", handlePaste);
+    document.getElementById("make-test-btn").addEventListener("click", makeTest);
+    document.getElementById("reset-btn").addEventListener("click", resetQuiz);
+    document.getElementById("copy-sample").addEventListener("click", copySample);
   });
 </script>
